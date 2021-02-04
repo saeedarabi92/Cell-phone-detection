@@ -10,7 +10,7 @@ import glob
 import sys
 import tensorflow as tf
 import os
-# tf.get_logger().setLevel('INFO')
+import time
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
@@ -33,13 +33,12 @@ def check_python_version(debug=False):
 
 class Phone_Detector():
 
-    def __init__(self, save_image=False, debug=False, summerize_result=False):
+    def __init__(self, save_image=False, debug=False):
         self.save_image = save_image
         self.debug = debug
         self.PATH_TO_SAVED_MODEL = "./model/faster_rcnn_nas_coco_2018_01_28/saved_model"
         self.detect_fn = None
         self.annotation_list = None
-        self.summerize_result = summerize_result
         self.detected = False
         self.box_normalized_area_mean = 0.008565091
         self.box_normalized_area_std = 0.0033687195
@@ -256,5 +255,23 @@ class Phone_Detector():
                             radius=5, color=(0, 0, 225), thickness=-1)
         return np_img
 
-    def evaluate_detection_speed_performance(img):
-        pass
+    def evaluate_detection_speed_performance(self, img, img_path):
+        then = time.time()
+        for i in range(0, 50):
+            self.feed(img, img_path)
+        now = time.time()
+        print("Detection performance is {} FPS".format(50 / round(now - then, 2)))
+
+    def summerize_result(self):
+        print("correct_counts: ",
+              self.correct_counts, "\n",
+              "incorrect_counts: ",
+              self.incorrect_counts, "\n",
+              "accuracy: ", self.correct_counts * 100 /
+              (self.correct_counts + self.incorrect_counts), "%", "\n"
+              "files_detected_by_deep_model: ",
+              self.files_detected_by_deep_model, "\n",
+              "files_detected_by_color_filtering: ",
+              self.files_detected_by_color_filtering, "\n",
+              "files_with_no_detection: ",
+              self.files_with_no_detection, "\n")
