@@ -43,7 +43,7 @@ class Phone_Detector():
         self.detect_fn = None
         self.annotation_list = None
         self.detected = False
-        self.display_image = True
+        self.display_image = False
         self.box_normalized_area_mean = 0.008565091
         self.box_normalized_area_std = 0.0033687195
         self.image_width = 490
@@ -53,57 +53,59 @@ class Phone_Detector():
         self.files_detected_by_deep_model = []
         self.files_detected_by_color_filtering = []
         self.files_with_no_detection = []
-        # self.load_deep_model()
+        self.load_deep_model()
         self.load_annotation()
         self.th = None
         if self.debug:
             print("Instance of Phone detector were initiated")
 
     def feed(self, img, img_name):
-        # detections = self.detect_with_deep_model(img)
-        # detection = self.filter_deep_model_detection(detections)
-        # if self.if_deep_model_detect(detection, img_name):
-        #     self.detected = True
-        #     x, y = self.get_deep_model_normalized_bbox_center(detections)
-        #     detection_is_corect = self.check_detection_correctness(
-        #         x, y, img_name)
-        #     if detection_is_corect:
-        #         self.correct_counts += 1
-        #         self.files_detected_by_deep_model.append(img_name)
-        #     else:
-        #         self.detected = False
-        #         self.incorrect_counts += 1
-        #         self.files_with_no_detection.append(img_name)
-        # else:
-        bboxs = self.detection_by_color_filtering(img)
-        bbox = self.filter_detection_by_color(bboxs, img)
-        print('bbox: ', bbox)
-        if self.if_color_filtering_detect(bbox, img_name):
-            x, y = self.get_color_filtering_normalized_bbox_center(bbox)
+        detections = self.detect_with_deep_model(img)
+        detection = self.filter_deep_model_detection(detections)
+        if self.if_deep_model_detect(detection, img_name):
+            self.detected = True
+            x, y = self.get_deep_model_normalized_bbox_center(detections)
             detection_is_corect = self.check_detection_correctness(
                 x, y, img_name)
             if detection_is_corect:
-                self.detected = True
                 self.correct_counts += 1
-                self.files_detected_by_color_filtering.append(img_name)
+                self.files_detected_by_deep_model.append(img_name)
             else:
                 self.detected = False
                 self.incorrect_counts += 1
                 self.files_with_no_detection.append(img_name)
         else:
-            self.detected = False
-            self.incorrect_counts += 1
-            self.files_with_no_detection.append(img_name)
+            bboxs = self.detection_by_color_filtering(img)
+            bbox = self.filter_detection_by_color(bboxs, img)
+            print('bbox: ', bbox)
+            print("img_name: ", img_name)
 
-        if self.save_image and self.detected:
-            img = self.draw_bbox_centered(x, y, img)
-            img_name = "./find_phone_detection/" + img_name.split('/')[-1]
-            cv2.imwrite(img_name, img)
-        if self.detected:
-            return y, x
-        else:
-            if self.debug:
-                print("Detector could not detect any cell phone!")
+            if self.if_color_filtering_detect(bbox, img_name):
+                x, y = self.get_color_filtering_normalized_bbox_center(bbox)
+                detection_is_corect = self.check_detection_correctness(
+                    x, y, img_name)
+                if detection_is_corect:
+                    self.detected = True
+                    self.correct_counts += 1
+                    self.files_detected_by_color_filtering.append(img_name)
+                else:
+                    self.detected = False
+                    self.incorrect_counts += 1
+                    self.files_with_no_detection.append(img_name)
+            else:
+                self.detected = False
+                self.incorrect_counts += 1
+                self.files_with_no_detection.append(img_name)
+
+            if self.save_image and self.detected:
+                img = self.draw_bbox_centered(x, y, img)
+                img_name = "./find_phone_detection/" + img_name.split('/')[-1]
+                cv2.imwrite(img_name, img)
+            if self.detected:
+                return y, x
+            else:
+                if self.debug:
+                    print("Detector could not detect any cell phone!")
 
     def if_color_filtering_detect(self, bbox, img_name):
         if bbox == None:
@@ -130,72 +132,86 @@ class Phone_Detector():
         blur_r = cv2.GaussianBlur(result, (5, 5), 0)
 
         th_g, threshed_r = cv2.threshold(
-            blur_r, self.th , 255, cv2.THRESH_BINARY_INV)
+            blur_r, self.th, 255, cv2.THRESH_BINARY_INV)
         cnts = cv2.findContours(
             threshed_r, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
         bboxes = []
         for cnt in cnts:
             x, y, w, h = cv2.boundingRect(cnt)
-            cv2.rectangle(img, (x, y), (x + w, y + h),
-                          (0, 0, 255), thickness=2)
+            if self.display_image:
+                cv2.rectangle(img, (x, y), (x + w, y + h),
+                              (0, 0, 255), thickness=2)
             bboxes.append([x, y, w, h])
         print("bboxes :", bboxes)
-        
+
         if self.display_image:
             cv2.imshow('org_img', img)
-            cv2.imshow('blur', blur_r)
-            cv2.imshow('mask', mask)
-            cv2.imshow('result', result)
-            cv2.imshow('threshed_r', threshed_r)
+            # cv2.imshow('blur', blur_r)
+            # cv2.imshow('mask', mask)
+            # cv2.imshow('result', result)
+            # cv2.imshow('threshed_r', threshed_r)
             cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+            cv2.destroyAllWindows()
         return bboxes
 
     def get_bbox_normalized_area(self, box):
         x, y, w, h = box
+        # print(x, y, w, h, (w/self.image_width), (h/self.image_height))
         return (w/self.image_width) * (h/self.image_height)
-
 
     def get_majority_pixel_value(self, box, img):
         x, y, w, h = box
-        print(x, y, w, h)
-        if w>1 and h>1:
+        # print(x, y, w, h)
+        if w > 1 and h > 1:
             croped = img[y:y + h, x:x + w]
             gray = cv2.cvtColor(croped, cv2.COLOR_BGR2GRAY)
             th_g, threshed_r = cv2.threshold(
-            gray, self.th , 255, cv2.THRESH_BINARY_INV)
-            cv2.imshow('crop', threshed_r)
+                gray, self.th, 255, cv2.THRESH_BINARY_INV)
+            # cv2.imshow('crop', threshed_r)
             arr = threshed_r.flatten()
-            white_pixel_percent = np.bincount(arr)[255]/len(arr)*100
-            
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            # print("arr: ", arr)
+            if 255 in arr:
+                # print("np.bincount(arr)[255]: ", np.bincount(arr)[255])
+                # print("len(arr)*100: ", len(arr)*100)
+                white_pixel_percent = np.bincount(arr)[255]/len(arr)*100
+            else:
+                white_pixel_percent = 0.
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            # print("white_pixel_percent: ", white_pixel_percent)
             return white_pixel_percent
-        
-
+        else:
+            return 0
 
     def detection_is_cell_phone(self, box, img):
         area = self.get_bbox_normalized_area(box)
-        condition1 = area < self.box_normalized_area_mean + 2*self.box_normalized_area_std and area > self.box_normalized_area_mean - 2*self.box_normalized_area_std
-        condition2 = self.get_majority_pixel_value(box, img)
-        return (condition1, condition2)
+        shape_condition = area < self.box_normalized_area_mean + 2.5 * \
+            self.box_normalized_area_std and area > self.box_normalized_area_mean - \
+            2.5 * self.box_normalized_area_std
+        # print("shape_condition: ", shape_condition)
+        color_condition = self.get_majority_pixel_value(box, img)
+        # print("color_condition: ", color_condition)
+        return (shape_condition, color_condition)
         # if condition1 and condition2:
         #     return True
         # else:
         #     return False
 
     def filter_detection_by_color(self, bboxes, img):
-        condition1_list = [] 
-        condition2_list = []
+        shape_condition_list = []
+        color_condition_list = []
         for box in bboxes:
-            condition = self.detection_is_cell_phone(box, img)
-            condition1_list.append(condition[0])
-            condition2_list.append(condition[1])
-        print("c1", condition1_list)
-        print("c2", condition2_list)
-        #     if self.detection_is_cell_phone(box, img):
-        #         return box
-        # return None
+            conditions = self.detection_is_cell_phone(box, img)
+            shape_condition_list.append(conditions[0])
+            color_condition_list.append(conditions[1])
+        print("c1", shape_condition_list)
+        print("c2", color_condition_list)
+        if len(color_condition_list) != 0:
+            max_index = np.argmax(color_condition_list)
+            if shape_condition_list[max_index]:
+                return bboxes[max_index]
+        else:
+            return None
 
     def load_deep_model(self):
         if self.debug:
