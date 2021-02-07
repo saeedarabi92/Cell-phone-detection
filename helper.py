@@ -21,11 +21,11 @@ def check_python_version(debug=False):
     # Check if the script is running by python 3
     if sys.version_info[0] < 3:
         print("""
-        
-        
+
+
                 ***ATTENTION***
-        
-        
+
+
         """)
         print("This program were tested on Python 3 or a more recent version. Please use Python 3 or a more recent version.")
         sys.exit()
@@ -78,7 +78,7 @@ class Phone_Detector():
             bboxs = self.detection_by_color_filtering(img)
             bbox = self.filter_detection_by_color(bboxs, img)
             print('bbox: ', bbox)
-            print("img_name: ", img_name)
+            # print("img_name: ", img_name)
 
             if self.if_color_filtering_detect(bbox, img_name):
                 x, y = self.get_color_filtering_normalized_bbox_center(bbox)
@@ -183,35 +183,19 @@ class Phone_Detector():
         else:
             return 0
 
-    def detection_is_cell_phone(self, box, img):
+    def detection_is_cell_phone(self, box):
         area = self.get_bbox_normalized_area(box)
-        shape_condition = area < self.box_normalized_area_mean + 2.5 * \
-            self.box_normalized_area_std and area > self.box_normalized_area_mean - \
-            2.5 * self.box_normalized_area_std
-        # print("shape_condition: ", shape_condition)
-        color_condition = self.get_majority_pixel_value(box, img)
-        # print("color_condition: ", color_condition)
-        return (shape_condition, color_condition)
-        # if condition1 and condition2:
-        #     return True
-        # else:
-        #     return False
+        if area < self.box_normalized_area_mean + 2*self.box_normalized_area_std and area > self.box_normalized_area_mean - 2*self.box_normalized_area_std:
+            return True
+        else:
+            return False
 
     def filter_detection_by_color(self, bboxes, img):
-        shape_condition_list = []
-        color_condition_list = []
         for box in bboxes:
-            conditions = self.detection_is_cell_phone(box, img)
-            shape_condition_list.append(conditions[0])
-            color_condition_list.append(conditions[1])
-        print("c1", shape_condition_list)
-        print("c2", color_condition_list)
-        if len(color_condition_list) != 0:
-            max_index = np.argmax(color_condition_list)
-            if shape_condition_list[max_index]:
-                return bboxes[max_index]
-        else:
-            return None
+            if self.detection_is_cell_phone(box):
+                return box
+            else:
+                return None
 
     def load_deep_model(self):
         if self.debug:
