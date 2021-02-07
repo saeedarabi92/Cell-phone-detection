@@ -15,5 +15,8 @@ if __name__ == '__main__':
         save_image=False, debug=False)
     phone_detector.th = 59
     img = cv2.imread(img_path)
-    x, y = phone_detector.feed(img, img_path)
-    print(round(x, 4), " ", round(y, 4))
+    try:
+        x, y = phone_detector.feed(img, img_path)
+        print(round(x, 4), " ", round(y, 4))
+    except:
+        print("No detection resutl found for {}".format(img_path)) 
