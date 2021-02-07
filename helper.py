@@ -11,14 +11,15 @@ import sys
 import tensorflow as tf
 import os
 import time
-from scipy import stats
-import pandas as pd
 
+# Preventing tensorflow warnings to print in terminal
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 def check_python_version(debug=False):
+
     # Check if the script is running by python 3
+
     if sys.version_info[0] < 3:
         print("""
 
@@ -54,7 +55,7 @@ class Phone_Detector():
         self.files_detected_by_color_filtering = []
         self.files_with_no_detection = []
         self.load_deep_model()
-        self.load_annotation()
+        self.load_annotation_file()
         self.th = None
         if self.debug:
             print("Instance of Phone detector were initiated")
@@ -65,7 +66,7 @@ class Phone_Detector():
         if self.if_deep_model_detect(detection, img_name):
             self.detected = True
             x, y = self.get_deep_model_normalized_bbox_center(detections)
-            detection_is_corect = self.check_detection_correctness(
+            detection_is_corect = self.if_detection_is_correct(
                 x, y, img_name)
             if detection_is_corect:
                 self.correct_counts += 1
@@ -78,11 +79,10 @@ class Phone_Detector():
             bboxs = self.detection_by_color_filtering(img)
             bbox = self.filter_detection_by_color(bboxs)
             print('bbox: ', bbox)
-            # print("img_name: ", img_name)
 
             if self.if_color_filtering_detect(bbox, img_name):
                 x, y = self.get_color_filtering_normalized_bbox_center(bbox)
-                detection_is_corect = self.check_detection_correctness(
+                detection_is_corect = self.if_detection_is_correct(
                     x, y, img_name)
                 if detection_is_corect:
                     self.detected = True
@@ -97,42 +97,49 @@ class Phone_Detector():
                 self.incorrect_counts += 1
                 self.files_with_no_detection.append(img_name)
 
-            if self.save_image and self.detected:
-                img = self.draw_bbox_centered(x, y, img)
-                img_name = "./find_phone_detection/" + img_name.split('/')[-1]
-                cv2.imwrite(img_name, img)
-            if self.detected:
-                return y, x
-            else:
-                if self.debug:
-                    print("Detector could not detect any cell phone!")
+        if self.save_image and self.detected:
+            img = self.draw_bbox_centered(x, y, img)
+            img_name = "./find_phone_detection/" + img_name.split('/')[-1]
+            cv2.imwrite(img_name, img)
+        if self.detected:
+            return y, x
+        else:
+            if self.debug:
+                print("Detector could not detect any cell phone!")
 
-    def if_color_filtering_detect(self, bbox, img_name):
+    def if_color_filtering_detect(self, bbox, img_path):
         if bbox == None:
             if self.debug:
                 print("Color filtering could not detect any cell phone on ",
-                      img_name.split('/')[-1])
+                      img_path.split('/')[-1])
             return False
         else:
             return True
 
-    def if_deep_model_detect(self, det, img_name):
+    def if_deep_model_detect(self, det, img_path):
         if len(det['detection_boxes']) == 0:
             if self.debug:
                 print("Deep model could not detect any cell phone on ",
-                      img_name.split('/')[-1])
+                      img_path.split('/')[-1])
             return False
         else:
             return True
 
     def detection_by_color_filtering(self, img):
+
+        # converting to gray scale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # removing the light reflection
         mask = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)[1]
         result = cv2.inpaint(gray, mask, 50, cv2.INPAINT_TELEA)
-        blur_r = cv2.GaussianBlur(result, (5, 5), 0)
 
+        # removing noise in image
+        blur_r = cv2.GaussianBlur(result, (5, 5), 0)
         th_g, threshed_r = cv2.threshold(
             blur_r, self.th, 255, cv2.THRESH_BINARY_INV)
+
+        # finding bounding boxes in the image
         cnts = cv2.findContours(
             threshed_r, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
         bboxes = []
@@ -142,7 +149,6 @@ class Phone_Detector():
                 cv2.rectangle(img, (x, y), (x + w, y + h),
                               (0, 0, 255), thickness=2)
             bboxes.append([x, y, w, h])
-        print("bboxes :", bboxes)
 
         if self.display_image:
             cv2.imshow('org_img', img)
@@ -156,11 +162,12 @@ class Phone_Detector():
 
     def get_bbox_normalized_area(self, box):
         x, y, w, h = box
-        # print(x, y, w, h, (w/self.image_width), (h/self.image_height))
         return (w/self.image_width) * (h/self.image_height)
 
-    def detection_is_cell_phone(self, box):
+    def if_detection_is_cell_phone(self, box):
         area = self.get_bbox_normalized_area(box)
+
+        # check if  mean - 2*sigma < bounding_box < mean + 2*sigma
         if area < self.box_normalized_area_mean + 2*self.box_normalized_area_std and area > self.box_normalized_area_mean - 2*self.box_normalized_area_std:
             return True
         else:
@@ -168,7 +175,7 @@ class Phone_Detector():
 
     def filter_detection_by_color(self, bboxes):
         for box in bboxes:
-            if self.detection_is_cell_phone(box):
+            if self.if_detection_is_cell_phone(box):
                 return box
             return None
 
@@ -181,11 +188,14 @@ class Phone_Detector():
             print("Deep model loaded successfully")
 
     def detect_with_deep_model(self, img):
-        # The input needs to be a tensor, convert it using `tf.convert_to_tensor`.
+
+        # converting image ot tensor
         input_tensor = tf.convert_to_tensor(img)
-        # The model expects a batch of images, so add an axis with `tf.newaxis`.
+
+        # adding an axis to make a batch
         input_tensor = input_tensor[tf.newaxis, ...]
         detections = self.detect_fn(input_tensor)
+
         # All outputs are batches tensors.
         # Convert to numpy arrays, and take index [0] to remove the batch dimension.
         # We're only interested in the first num_detections.
@@ -193,6 +203,7 @@ class Phone_Detector():
         detections = {key: value[0, :num_detections].numpy()
                       for key, value in detections.items()}
         detections['num_detections'] = num_detections
+
         # detection_classes should be ints.
         detections['detection_classes'] = detections['detection_classes'].astype(
             np.int64)
@@ -203,6 +214,7 @@ class Phone_Detector():
         return y/self.image_height + h/self.image_height/2, x/self.image_width + w/self.image_width/2
 
     def filter_deep_model_detection(self, detections):
+
         # Cell phone ID is 77 in COCO dataset label
         i,  = np.where(detections['detection_classes'] == 77)
         detections['detection_boxes'] = detections['detection_boxes'][i]
@@ -210,22 +222,11 @@ class Phone_Detector():
         detections['detection_scores'] = detections['detection_scores'][i]
         return detections
 
-    def load_annotation(self):
+    def load_annotation_file(self):
         f = open("./find_phone/labels.txt", 'r')
         annotation_list = f.readlines()
         annotation_list = [i[:-2] for i in annotation_list]
         self.annotation_list = [i.split() for i in annotation_list]
-
-    def plot_annotation(self, np_img, img_name):
-        img_name = img_name.split('/')[-1]
-        x = float([i[1]
-                   for i in self.annotation_list if i[0] == img_name][0])
-        y = float([i[2]
-                   for i in self.annotation_list if i[0] == img_name][0])
-        x = x*self.image_height
-        y = y*self.image_width
-        np_img = cv2.circle(np_img, (int(round(y)), int(round(x))),
-                            radius=5, color=(0, 0, 225), thickness=-1)
 
     def get_deep_model_normalized_bbox_center(self, detections):
         x1 = detections['detection_boxes'][0][0]
@@ -234,30 +235,17 @@ class Phone_Detector():
         y2 = detections['detection_boxes'][0][3]
         return x1+(x2-x1)/2, y1+(y2-y1)/2
 
-    def check_detection_correctness(self, y_d, x_d, img_name):
+    def if_detection_is_correct(self, y_d, x_d, img_name):
         img_name = img_name.split('/')[-1]
         x_g = float([i[1]
                      for i in self.annotation_list if i[0] == img_name][0])
         y_g = float([i[2]
                      for i in self.annotation_list if i[0] == img_name][0])
         dist = np.sqrt((x_g - x_d)**2 + (y_g - y_d)**2)
-        # print("dist ", dist)
-        # print(x_g, x_d, y_g, y_d)
         if dist < .05:
             return True
         else:
             return False
-
-    def draw_bbox(self, detections, img):
-        h = img.shape[0]
-        w = img.shape[1]
-        x1 = detections['detection_boxes'][0][0] * h
-        y1 = detections['detection_boxes'][0][1] * w
-        x2 = detections['detection_boxes'][0][2] * h
-        y2 = detections['detection_boxes'][0][3] * w
-        img_out = cv2.rectangle(img, (int(y1), int(x1)),
-                                (int(y2), int(x2)), (255, 0, 0), 2)
-        return img_out
 
     def draw_bbox_centered(self, x, y, np_img):
         x = x*self.image_height
