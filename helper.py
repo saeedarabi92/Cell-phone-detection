@@ -76,7 +76,7 @@ class Phone_Detector():
                 self.files_with_no_detection.append(img_name)
         else:
             bboxs = self.detection_by_color_filtering(img)
-            bbox = self.filter_detection_by_color(bboxs, img)
+            bbox = self.filter_detection_by_color(bboxs)
             print('bbox: ', bbox)
             # print("img_name: ", img_name)
 
@@ -159,30 +159,6 @@ class Phone_Detector():
         # print(x, y, w, h, (w/self.image_width), (h/self.image_height))
         return (w/self.image_width) * (h/self.image_height)
 
-    def get_majority_pixel_value(self, box, img):
-        x, y, w, h = box
-        # print(x, y, w, h)
-        if w > 1 and h > 1:
-            croped = img[y:y + h, x:x + w]
-            gray = cv2.cvtColor(croped, cv2.COLOR_BGR2GRAY)
-            th_g, threshed_r = cv2.threshold(
-                gray, self.th, 255, cv2.THRESH_BINARY_INV)
-            # cv2.imshow('crop', threshed_r)
-            arr = threshed_r.flatten()
-            # print("arr: ", arr)
-            if 255 in arr:
-                # print("np.bincount(arr)[255]: ", np.bincount(arr)[255])
-                # print("len(arr)*100: ", len(arr)*100)
-                white_pixel_percent = np.bincount(arr)[255]/len(arr)*100
-            else:
-                white_pixel_percent = 0.
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-            # print("white_pixel_percent: ", white_pixel_percent)
-            return white_pixel_percent
-        else:
-            return 0
-
     def detection_is_cell_phone(self, box):
         area = self.get_bbox_normalized_area(box)
         if area < self.box_normalized_area_mean + 2*self.box_normalized_area_std and area > self.box_normalized_area_mean - 2*self.box_normalized_area_std:
@@ -190,12 +166,11 @@ class Phone_Detector():
         else:
             return False
 
-    def filter_detection_by_color(self, bboxes, img):
+    def filter_detection_by_color(self, bboxes):
         for box in bboxes:
             if self.detection_is_cell_phone(box):
                 return box
-            else:
-                return None
+            return None
 
     def load_deep_model(self):
         if self.debug:
