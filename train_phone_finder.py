@@ -4,15 +4,14 @@
  # @ Email: arabi@iastate.edu
  '''
 
-from helper import check_python_version
+from helper import check_python_version, Phone_Detector
 
 if __name__ == "__main__":
-
     check_python_version()
+    phone_detector = Phone_Detector()
     print("""
     
-    This program was supposed to be for training the model. \n However, I was able to achieve acceptable result based on the requirement of the coding challenge, \n by only using pre-trained models and classic computer vision methods.
-
-    Please checkout the README.md file of the project for more informations!
+    This program downloads the faster rcnn nas model trained on COCO dataset. The results will be in "~/.keras/datasets".
 
     """)
+    phone_detector.download_deep_learrning_model()
