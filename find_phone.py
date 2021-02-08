@@ -9,10 +9,24 @@ import sys
 import cv2
 
 if __name__ == '__main__':
+
+    # cheking the python veriosn
     check_python_version()
+
+    # reading the image path
     img_path = sys.argv[1]
+
+    # creating the detector instance
     phone_detector = Phone_Detector(
         save_image=False, debug=False)
+
+    # downloding the deep model (if it's not already downloaded)
+    MODEL_NAME = 'faster_rcnn_nas_coco_2018_01_28'
+    phone_detector.PATH_TO_SAVED_MODEL = phone_detector.download_deep_learrning_model() + \
+        "/saved_model"
+
+    # loding the deep model
+    phone_detector.load_deep_model()
 
     # setting the threshold for color filtering (This value found using a grid-based search approach. Forr more information checkout grid_search.py)
     phone_detector.th = 59
