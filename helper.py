@@ -40,11 +40,11 @@ class Phone_Detector():
     def __init__(self, save_image=False, debug=False):
         self.save_image = save_image
         self.debug = debug
-        self.PATH_TO_SAVED_MODEL = "./model/faster_rcnn_nas_coco_2018_01_28/saved_model"
         self.detect_fn = None
         self.annotation_list = None
         self.detected = False
         self.display_image = False
+        self.model_name = "faster_rcnn_nas_coco_2018_01_28"
         self.box_normalized_area_mean = 0.008565091
         self.box_normalized_area_std = 0.0033687195
         self.image_width = 490
@@ -54,7 +54,6 @@ class Phone_Detector():
         self.files_detected_by_deep_model = []
         self.files_detected_by_color_filtering = []
         self.files_with_no_detection = []
-        self.load_deep_model()
         self.load_annotation_file()
         self.th = None
         if self.debug:
@@ -78,7 +77,7 @@ class Phone_Detector():
         else:
             bboxs = self.detection_by_color_filtering(img)
             bbox = self.filter_detection_by_color(bboxs)
-            print('bbox: ', bbox)
+            # print('bbox: ', bbox)
 
             if self.if_color_filtering_detect(bbox, img_name):
                 x, y = self.get_color_filtering_normalized_bbox_center(bbox)
@@ -261,16 +260,26 @@ class Phone_Detector():
         now = time.time()
         print("Detection performance is {} FPS".format(50 / round(now - then, 2)))
 
-    def summerize_result(self):
-        print("correct_counts: ",
-              self.correct_counts, "\n",
-              "incorrect_counts: ",
-              self.incorrect_counts, "\n",
-              "accuracy: ", self.correct_counts * 100 /
-              (self.correct_counts + self.incorrect_counts), "%", "\n"
-              "files_detected_by_deep_model: ",
-              self.files_detected_by_deep_model, "\n",
-              "files_detected_by_color_filtering: ",
-              self.files_detected_by_color_filtering, "\n",
-              "files_with_no_detection: ",
-              self.files_with_no_detection, "\n")
+    def download_deep_learrning_model(self):
+
+        base_url = 'http://download.tensorflow.org/models/object_detection/'
+        model_file = self.model_name + '.tar.gz'
+        model_dir = tf.keras.utils.get_file(fname=self.model_name,
+                                            origin=base_url + model_file,
+                                            untar=True)
+        return str(model_dir)
+
+
+def summerize_result(self):
+    print("correct_counts: ",
+          self.correct_counts, "\n",
+          "incorrect_counts: ",
+          self.incorrect_counts, "\n",
+          "accuracy: ", self.correct_counts * 100 /
+          (self.correct_counts + self.incorrect_counts), "%", "\n"
+          "files_detected_by_deep_model: ",
+          self.files_detected_by_deep_model, "\n",
+          "files_detected_by_color_filtering: ",
+          self.files_detected_by_color_filtering, "\n",
+          "files_with_no_detection: ",
+          self.files_with_no_detection, "\n")
