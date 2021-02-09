@@ -73,9 +73,9 @@ class Phone_Detector():
         detection = self.filter_deep_model_detection(detections)
         if self.if_deep_model_detect(detection, img_name):
             self.detected = True
-            x, y = self.get_deep_model_normalized_bbox_center(detections)
+            y, x = self.get_deep_model_normalized_bbox_center(detections)
             detection_is_corect = self.if_detection_is_correct(
-                x, y, img_name)
+                y, x, img_name)
             if detection_is_corect:
                 self.correct_counts += 1
                 self.files_detected_by_deep_model.append(img_name)
@@ -86,11 +86,10 @@ class Phone_Detector():
         else:
             bboxs = self.detection_by_color_filtering(img)
             bbox = self.filter_detection_by_color(bboxs)
-
             if self.if_color_filtering_detect(bbox, img_name):
                 x, y = self.get_color_filtering_normalized_bbox_center(bbox)
                 detection_is_corect = self.if_detection_is_correct(
-                    x, y, img_name)
+                    y, x, img_name)
                 if detection_is_corect:
                     self.detected = True
                     self.correct_counts += 1
@@ -218,7 +217,7 @@ class Phone_Detector():
         for box in bboxes:
             if self.if_detection_is_cell_phone(box):
                 return box
-            return None
+        return None
 
     def load_deep_model(self):
         """
@@ -269,7 +268,7 @@ class Phone_Detector():
         """
 
         x, y, w, h = box
-        return x/self.image_width + w/self.image_width/2, y/self.image_height + h/self.image_height/2
+        return  x/self.image_width + w/self.image_width/2, y/self.image_height + h/self.image_height/2 
 
     def filter_deep_model_detection(self, detections):
         """
