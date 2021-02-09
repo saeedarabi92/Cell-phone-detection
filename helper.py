@@ -45,6 +45,7 @@ class Phone_Detector():
         self.detected = False
         self.display_image = False
         self.model_name = "faster_rcnn_nas_coco_2018_01_28"
+        # The two subsequent values are derived by calculating the average and standard deviation of bounding boxes area on th etest dataset
         self.box_normalized_area_mean = 0.008565091
         self.box_normalized_area_std = 0.0033687195
         self.image_width = 490
@@ -55,11 +56,19 @@ class Phone_Detector():
         self.files_detected_by_color_filtering = []
         self.files_with_no_detection = []
         self.load_annotation_file()
+
+        # color filtering threshold
         self.th = None
         if self.debug:
             print("Instance of Phone detector were initiated")
 
     def feed(self, img, img_name):
+        """
+        function: conducting the detection on an image
+        input: numpy image
+        output: normalized bounding box center
+        """
+
         detections = self.detect_with_deep_model(img)
         detection = self.filter_deep_model_detection(detections)
         if self.if_deep_model_detect(detection, img_name):
@@ -77,7 +86,6 @@ class Phone_Detector():
         else:
             bboxs = self.detection_by_color_filtering(img)
             bbox = self.filter_detection_by_color(bboxs)
-            # print('bbox: ', bbox)
 
             if self.if_color_filtering_detect(bbox, img_name):
                 x, y = self.get_color_filtering_normalized_bbox_center(bbox)
@@ -101,12 +109,18 @@ class Phone_Detector():
             img_name = "./find_phone_detection/" + img_name.split('/')[-1]
             cv2.imwrite(img_name, img)
         if self.detected:
-            return y, x
+            return x, y
         else:
             if self.debug:
                 print("Detector could not detect any cell phone!")
 
     def if_color_filtering_detect(self, bbox, img_path):
+        """
+        function: check if color filtering method detects anything
+        input: list of bounding boxes
+        output: boolean 
+        """
+
         if bbox == None:
             if self.debug:
                 print("Color filtering could not detect any cell phone on ",
@@ -116,6 +130,12 @@ class Phone_Detector():
             return True
 
     def if_deep_model_detect(self, det, img_path):
+        """
+        function: check if deep learning method detects anything
+        input: list of bounding boxes
+        output: boolean 
+        """
+
         if len(det['detection_boxes']) == 0:
             if self.debug:
                 print("Deep model could not detect any cell phone on ",
@@ -125,6 +145,11 @@ class Phone_Detector():
             return True
 
     def detection_by_color_filtering(self, img):
+        """
+        function: detection by color filtering method
+        input: numpy image
+        output: list of bounding boxes
+        """
 
         # converting to gray scale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -160,12 +185,23 @@ class Phone_Detector():
         return bboxes
 
     def get_bbox_normalized_area(self, box):
+        """
+        funciton: calculatinf bounding box normalized area
+        input: bounding box
+        outpu: int value
+        """
+
         x, y, w, h = box
         return (w/self.image_width) * (h/self.image_height)
 
     def if_detection_is_cell_phone(self, box):
-        area = self.get_bbox_normalized_area(box)
+        """
+        function: check if color filtering method could actually detect the cell-phone
+        input: bounding box
+        output: boolean  
+        """
 
+        area = self.get_bbox_normalized_area(box)
         # check if  mean - 2*sigma < bounding_box < mean + 2*sigma
         if area < self.box_normalized_area_mean + 2*self.box_normalized_area_std and area > self.box_normalized_area_mean - 2*self.box_normalized_area_std:
             return True
@@ -173,12 +209,24 @@ class Phone_Detector():
             return False
 
     def filter_detection_by_color(self, bboxes):
+        """
+        function: find the cell phone bounding box 
+        input: list of bounding boxes
+        output: bounding box
+        """
+
         for box in bboxes:
             if self.if_detection_is_cell_phone(box):
                 return box
             return None
 
     def load_deep_model(self):
+        """
+        function: loading the deep model into the memory
+        input: -
+        output: -
+        """
+
         if self.debug:
             print("Loading deep model...")
         model = tf.saved_model.load(self.PATH_TO_SAVED_MODEL)
@@ -187,6 +235,11 @@ class Phone_Detector():
             print("Deep model loaded successfully")
 
     def detect_with_deep_model(self, img):
+        """
+        function: conduct the object detection using deep leanring method
+        input: numpy image
+        output: dictionary contains information about detections
+        """
 
         # converting image ot tensor
         input_tensor = tf.convert_to_tensor(img)
@@ -209,10 +262,21 @@ class Phone_Detector():
         return detections
 
     def get_color_filtering_normalized_bbox_center(self, box):
+        """
+        function: find boundig box center
+        input: bounding box
+        outpu: bounding box center
+        """
+
         x, y, w, h = box
-        return y/self.image_height + h/self.image_height/2, x/self.image_width + w/self.image_width/2
+        return x/self.image_width + w/self.image_width/2, y/self.image_height + h/self.image_height/2
 
     def filter_deep_model_detection(self, detections):
+        """
+        function: filter deep learning based detections which are not cell phones
+        input: detection dictionary
+        output: detection dectionary
+        """
 
         # Cell phone ID is 77 in COCO dataset label
         i,  = np.where(detections['detection_classes'] == 77)
@@ -222,12 +286,23 @@ class Phone_Detector():
         return detections
 
     def load_annotation_file(self):
+        """
+        function: loading annotation file into memory
+        input: -
+        output: -
+        """
+
         f = open("./find_phone/labels.txt", 'r')
         annotation_list = f.readlines()
         annotation_list = [i[:-2] for i in annotation_list]
         self.annotation_list = [i.split() for i in annotation_list]
 
     def get_deep_model_normalized_bbox_center(self, detections):
+        """
+        function: calculating deep learning based detection normalized bounding box center 
+        input: detection dictionary 
+        output: bounding box center
+        """
         x1 = detections['detection_boxes'][0][0]
         y1 = detections['detection_boxes'][0][1]
         x2 = detections['detection_boxes'][0][2]
@@ -235,6 +310,12 @@ class Phone_Detector():
         return x1+(x2-x1)/2, y1+(y2-y1)/2
 
     def if_detection_is_correct(self, y_d, x_d, img_name):
+        """
+        function: check the detection results with the annotations
+        input: image name, detection results
+        output: boolean
+        """
+
         img_name = img_name.split('/')[-1]
         x_g = float([i[1]
                      for i in self.annotation_list if i[0] == img_name][0])
@@ -247,6 +328,11 @@ class Phone_Detector():
             return False
 
     def draw_bbox_centered(self, x, y, np_img):
+        """
+        function: draw point on the image
+        input: numpy array
+        output: numpy array
+        """
         x = x*self.image_height
         y = y*self.image_width
         np_img = cv2.circle(np_img, (int(round(y)), int(round(x))),
@@ -254,6 +340,12 @@ class Phone_Detector():
         return np_img
 
     def evaluate_detection_speed_performance(self, img, img_path):
+        """
+        function: calculate detection frame per second 
+        imput: numpy array, image path
+        output: -
+        """
+
         then = time.time()
         for i in range(0, 50):
             self.feed(img, img_path)
@@ -261,7 +353,9 @@ class Phone_Detector():
         print("Detection performance is {} FPS".format(50 / round(now - then, 2)))
 
     def download_deep_learrning_model(self):
-
+        """
+        function: downloads deep model frozen graph
+        """
         base_url = 'http://download.tensorflow.org/models/object_detection/'
         model_file = self.model_name + '.tar.gz'
         model_dir = tf.keras.utils.get_file(fname=self.model_name,
@@ -269,17 +363,19 @@ class Phone_Detector():
                                             untar=True)
         return str(model_dir)
 
-
-def summerize_result(self):
-    print("correct_counts: ",
-          self.correct_counts, "\n",
-          "incorrect_counts: ",
-          self.incorrect_counts, "\n",
-          "accuracy: ", self.correct_counts * 100 /
-          (self.correct_counts + self.incorrect_counts), "%", "\n"
-          "files_detected_by_deep_model: ",
-          self.files_detected_by_deep_model, "\n",
-          "files_detected_by_color_filtering: ",
-          self.files_detected_by_color_filtering, "\n",
-          "files_with_no_detection: ",
-          self.files_with_no_detection, "\n")
+    def summerize_result(self):
+        """
+        function: summerize the result
+        """
+        print("correct_counts: ",
+              self.correct_counts, "\n",
+              "incorrect_counts: ",
+              self.incorrect_counts, "\n",
+              "accuracy: ", self.correct_counts * 100 /
+              (self.correct_counts + self.incorrect_counts), "%", "\n"
+              "files_detected_by_deep_model: ",
+              self.files_detected_by_deep_model, "\n",
+              "files_detected_by_color_filtering: ",
+              self.files_detected_by_color_filtering, "\n",
+              "files_with_no_detection: ",
+              self.files_with_no_detection, "\n")
